@@ -250,6 +250,8 @@ int main()
 			data[0] = 0x0D;  //CR
 			data[1] = 0x0A;  //LF
 			
+			//TODO Es fehlt nur noch diese Zeile auszugeben:
+			//CR, LF, „4000000A: C8“
 			
 			
 		}else if((cmd == 'E') || (cmd == 'e'))
