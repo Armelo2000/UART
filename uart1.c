@@ -154,6 +154,22 @@ int receive_StringUntil(char* str, char ch1)
 	}
 	return counter;
 }
+
+void receive_CharUntil(char* str, char ch1){
+	char ch = '\0';
+	int counter = 0;
+	if(str == (char *)0) return;
+	
+	do{
+
+		ch = UART1_Receive();
+		if(ch == ch1){
+		  *str = ch;
+		  break;
+		}
+	}while(ch != ch1);
+}
+
 /*******************************************************************
 * Diese Routine empfängt einen Charakter und sendet zurück an den PC
 ********************************************************************/
