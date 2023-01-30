@@ -301,7 +301,8 @@ void copy(void* dst, void* src, int len){
 int main()
 {
 	//variable für die Kommando die von PC Command
-	char cmd;
+	char cmd = 0x00;
+	char receiveSpaceChar = 0x00;
 	
 	char receiveData[20];
 	unsigned int* address;
