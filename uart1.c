@@ -211,25 +211,81 @@ void UART1_Init(unsigned int BaudRate){
 															//  	= Bit 2 = 1 -> Sende-Fifo ruecksetzen	(loescht sich danach selbst)
  }
  
- char charToHex(signed char in) {
-    if (in >= 0 && in <= 9) {
-        return in + 0x30;
-    }
+int hexToCharArry(unsigned int hex, char* ptChar){
+	if(ptChar == (char *)0) return 0;
+	int i;
+	char ch;
+	for(i=0; i<8; i++){
+		ch = (hex >> ((7-i) * 4)) & 0x0F;
+		*ptChar = 0;
+		if((ch >= 0) && (ch <= 9)){
+			*ptChar++ = (ch + 0x30);
 
-    if (in >= 10 && in <= 15) {
-        in -= 10;
-        return in + 0x41;
-    }
+		}else if((ch >= 10) && (ch <= 15)){
+			*ptChar++ = ((ch-10) + 'A');
 
-    return (char) -1;
+		}else{
+			//falsche Charakter gesendet
+
+		}
+
+	}
+
+	return 1;
 }
 
-void charToString(unsigned char c, char* dest) {
-    const char LSB = (c & 0xF);
-    const char MSB = (c & 0xF0) >> 4;
-    dest[0] = charToHex(MSB);
-    dest[1] = charToHex(LSB);
-    dest[2] = 0;
+int charArryToHex(char *ptChar, unsigned int *hex){
+	if((ptChar == (char *)0) || (hex == (unsigned int *)0)) return 0;
+	int i;
+	*hex = 0;
+	for(i=0; i<8; i++){
+		if((ptChar[i] >= '0') && (ptChar[i] <= '9')){
+		   *hex |= (ptChar[i] - 0x30) << ((7-i) * 4);
+
+		}else if((ptChar[i] >= 'A') && (ptChar[i] <= 'F')){
+		    *hex |= (ptChar[i] + 10 - 'A') << ((7-i) * 4);
+
+		}else if((ptChar[i] >= 'a') && (ptChar[i] <= 'f')){
+		    *hex |= (ptChar[i] + 10 - 'a') << ((7-i) * 4);
+
+		}else if(ptChar[i] != '\0'){
+			//falsche Charakter gesendet
+			return 0;
+		}
+
+	}
+
+	return 1;
+}
+
+int charArryToValue(char *ptChar, unsigned int *hex, int length){
+	if((ptChar == (char *)0) || (hex == (unsigned int *)0)) return 0;
+	int i;
+	*hex = 0;
+	int count = 0;
+	if(length > 8) length = 8;
+
+	for(i=0; i<length; i++){
+		if((ptChar[i] >= '0') && (ptChar[i] <= '9')){
+		   *hex |= (ptChar[i] - 0x30) << ((length - 1 - i) * 4);
+		   count++;
+
+		}else if((ptChar[i] >= 'A') && (ptChar[i] <= 'F')){
+		    *hex |= (ptChar[i] - 'A') << ((length - 1 - i) * 4);
+		    count++;
+
+		}else if((ptChar[i] >= 'a') && (ptChar[i] <= 'f')){
+		    *hex |= (ptChar[i] - 'a') << ((length - 1 - i) * 4);
+		    count++;
+
+		}else if(ptChar[i] != '\0'){
+			//falsche Charakter gesendet
+			return 0;
+		}
+
+	}
+
+	return 1;
 }
 
 void copy(void* dst, void* src, int len){
