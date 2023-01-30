@@ -28,6 +28,12 @@ unsigned char UART1_Receive();
 void UART1_Send_Str(char* ptCh);
 
 /*******************************************************************
+* Diese Routine sendet einen String mit definierte länge über den 
+* UART shnittstelle
+********************************************************************/
+void UART1_SendString_Len(char* ptCh, unsigned int len);
+  
+/*******************************************************************
 * Diese Routine empfängt einen String mit der gegebene Länge 
 * über den UART shnittstelle
 ********************************************************************/
