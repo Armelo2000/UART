@@ -129,10 +129,10 @@ int receive_String(char* str)
 }
 
 /*******************************************************************
-* Diese Routine empfängt einen String bis die charackter ch1 oder ch2 
+* Diese Routine empfängt einen String bis die charackter ch1 
 * gesendet ist
 ********************************************************************/
-int receive_StringUntil(char* str, char ch1, char ch2)
+int receive_StringUntil(char* str, char ch1)
 {
 	//prüfen dass der Pointer nicht NULL ist
 	//falls es NULL ist, soll die Funktion sofort verlassen
@@ -141,13 +141,16 @@ int receive_StringUntil(char* str, char ch1, char ch2)
 	char ch = 0x00;
 	int counter = 0;
 	
-	while((ch != ch1) && (ch != ch2)){
+	while(ch != ch1){
 		
+		ch = '\0';
 		ch = UART1_Receive();
-		if((ch == ch1) || (ch == ch2))
+		if(ch == ch1)
 			break;
-		*str++ = ch;
-		counter++;
+		if(ch != 0){
+		  *str++ = ch;
+		  counter++;
+		}
 	}
 	return counter;
 }
@@ -165,15 +168,19 @@ void Echo()
 /*******************************************************************
 * Diese Routine schreibt in einem beliebigen Register
 ********************************************************************/
-void writeTo(void* ptAddr, unsigned char val){
-	*(unsigned char *)ptAddr = val; 
+void writeTo(void* ptAddr, unsigned int val){
+   if(ptAddr != (void *)0)
+      *((unsigned int *)ptAddr) = val;
 }
 
 /*******************************************************************
 * Diese Routine liest von einem beliebigen Register
 ********************************************************************/
-unsigned char readFrom(void* ptAddr){
-	return (*(unsigned char *)ptAddr); 
+unsigned int readFrom(void* ptAddr){
+   if(ptAddr != (void *)0)
+      return  *((unsigned int *)ptAddr);
+   else
+      return 0;
 }
 
 
@@ -225,13 +232,13 @@ void charToString(unsigned char c, char* dest) {
     dest[2] = 0;
 }
 
-void copy(void* dst, void* src){
+void copy(void* dst, void* src, int len){
 	char* ptDst = (char*)dst;
 	char* ptSrc = (char*)src;
-	
-	while((*ptSrc != 0x0D) && (*ptSrc != 0x20)){
-		*ptDst++ = *ptSrc++
-	
+
+	while(len--){
+		*ptDst++ = *ptSrc++;
+
 	}
 }
 
@@ -247,42 +254,102 @@ int main()
 	
 	//UART schnittstelle erstmal mit dem BaudRate 19200 initialisieren
 	UART1_Init(19200);
-	
 	while(1){
-		//Kommando wird empfangen und geprüft
-		cmd = UART1_Receive()
-		
-		//wird für Groß und Kleinschreibung erlaubt
-		if((cmd == 'D') || (cmd == 'd'))
+	  int isCmdOk = 0;
+	  cmd = 0;
+	  receivedSpaceChar = 0;
+	  do{
+		  cmd = UART1_Receive();
+		  if((cmd == 'D') || (cmd == 'E')){
+			  isCmdOk = 1;
+		  }else if(cmd != '\0'){
+			 //ein falsches Kommando wurde übergeben
+			 //Anwender informieren
+			  UART1_SendString_Len("\n\rDas Kommando ist falsch. Geben Sie D oder E ein", 49);
+			  isCmdOk = 0;
+			  cmd = 0;
+		  }
+	  	}while(!isCmdOk);
+
+		//Leere taste wird geprüft
+		do{
+		  receivedSpaceChar = UART1_Receive();
+		  //Leerzeichen prüfen
+		  if((receivedSpaceChar != ' ') && (receivedSpaceChar != 0x00)){
+			 //ein falsches Taste für leere Taste wurde übergeben
+			 //Anwender informieren
+			  UART1_SendString_Len("\n\rFalsche Taste gedrueckt. Druecken sie die Leertaste", 53);
+			  receivedSpaceChar = 0;
+		  }
+		}while(receivedSpaceChar != ' ');
+
+		//wird nur für Großschreibung erlaubt
+		if(cmd == 'D')
 		{
-			char tmp[20];
-			empfangeneLaenge = receive_String((char *)&tmp[0]);
-			copy((char*)&receiveData[0], (char *)&tmp[0]);
-			address = (unsigned int*)receiveData;
+			char tmp[20] = {0};
+			char specialChar;
+			//8 charackter für die Adresse
+			char addr[8];
+			int i;
+			char temp;
+			char valueChar[8];
+
+			//bis zum leerzeichen empfangen
+			empfangeneLaenge = receive_StringUntil((char *)&tmp[0], 0x20);
+			receive_CharUntil((char *)&specialChar, 0x0D);
 			
-			//Liest vom register
-			value = readFrom((void *)(*address));
-			
-			char data[empfangeneLaenge + 6];
-			data[0] = 0x0D;  //CR
-			data[1] = 0x0A;  //LF
-			
-			//TODO Es fehlt nur noch diese Zeile auszugeben:
-			//CR, LF, „4000000A: C8“
-			
-			
-		}else if((cmd == 'E') || (cmd == 'e'))
-		{
-			char tmp[20];
-			empfangeneLaenge = receive_StringUntil((char *)&tmp[0], 0x20, 0x0D);
-			address = (unsigned int *)&tmp[0];
-			empfangeneLaenge = receive_StringUntil((char *)&tmp[0], 0x20, 0x0D);
-			value = *((unsigned char *)&tmp[0]);
-			
-			//schreibt im register
-			writeTo((void *)(*address), value);
-		
-		}
+			if(charArryToHex((char *)&tmp[0], &address)){
+				//vom register lesen
+				value = readFrom((void *)address);
+
+				i = hexToCharArry(value, &valueChar);
+
+				char data[empfangeneLaenge + 7];
+
+				data[0] = 0x0D;  // CR
+				data[1] = 0x0A;  // LF
+				data[2] = 0x20;  // ' '
+				copy((char*)&data[3], (char *)&tmp[0], 8);
+				data[11] = ':';
+				data[12] = ' ';
+
+
+				UART1_SendString_Len(data, 13);
+				UART1_SendString_Len(valueChar, 8);
+				UART1_SendString_Len("\n\r", 2);
+
+				//TODO Es fehlt nur noch diese Zeile auszugeben:
+				//CR, LF, „4000000A: C8“
+
+
+			}else{
+				//Error
+				//Der eingegeben Charakter ist falsch.
+				//Message: Geben sie ein Zahl zwischen 0 und 9 oder Charakter (Buchstabe zwischen A und F)
+			}
+
+		}else if(cmd == 'E')
+	  		{
+				char specialChar;
+	  			char tmp[20];
+	  			char valueChar[8] = {'\0'};
+	  			empfangeneLaenge = receive_StringUntil((char *)&tmp[0], 0x20);
+	  			int valueLength = receive_StringUntil((char *)&valueChar[0], 0x0D);
+
+	  			if(charArryToHex((char *)&tmp[0], &address) &&
+	  					charArryToValue((char *)&valueChar[0], &value, valueLength)){
+	  				//schreibt im register
+	  				writeTo((void *)address, value);
+	  			}else{
+	  				//Invalid address
+					UART1_SendString_Len("\n\r Die Adresse ist ungueltig", 28);
+	  			}
+
+	  		}
+	  		else{
+	  			//Error
+
+	  		}
 		
 	}
 	
